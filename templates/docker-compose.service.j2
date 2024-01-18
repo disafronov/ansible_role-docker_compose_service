@@ -1,0 +1,15 @@
+[Unit]
+Description=Docker compose: {{ docker_compose_name | mandatory }}
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+Environment="TERM=dumb"
+RemainAfterExit=true
+
+ExecStart=/usr/bin/docker compose --project-directory "/opt/{{ docker_compose_name | mandatory }}" up --remove-orphans -d
+ExecStop=/usr/bin/docker compose --project-directory "/opt/{{ docker_compose_name | mandatory }}" down --remove-orphans
+
+[Install]
+WantedBy=multi-user.target
