@@ -5,50 +5,84 @@
     name: docker-compose-plugin
     state: present
 
-- name: "Create working directory for Docker Compose service : {{ docker_compose_name | mandatory }}"
+- name: Fail on spaces in service names
+  when:
+    - docker_compose_service is defined
+    - docker_compose_service != None
+    - docker_compose_service | length > 0
+  with_dict: "{{ docker_compose_service }}"
+  ansible.builtin.assert:
+    that:
+      - "' ' not in item.key"
+  no_log: true
+
+- name: Create Docker compose service
+  when:
+    - item.value.compose is defined
+    - item.value.compose != None
+    - item.value.compose | length > 0
+  with_dict: "{{ docker_compose_service }}"
+  ansible.builtin.template:
+    src: docker-compose.service.j2
+    dest: "/etc/systemd/system/docker-compose_{{ item.key }}.service"
+    owner: root
+    group: root
+    mode: "0644"
+  register: docker_compose_service_service
+  no_log: true
+
+- name: Create Docker compose service working directory
+  when:
+    - item.value.compose is defined
+    - item.value.compose != None
+    - item.value.compose | length > 0
+  with_dict: "{{ docker_compose_service }}"
   ansible.builtin.file:
-    path: "/opt/{{ docker_compose_name | mandatory }}"
+    path: "/opt/docker-compose_{{ item.key }}"
     state: directory
     mode: '0755'
     owner: root
     group: root
+  no_log: true
 
-- name: "Template [docker-compose.yml] into working directory for Docker Compose service : {{ docker_compose_name | mandatory }}"
-  ansible.builtin.copy:
-    content: |
-      {{ docker_compose_content | mandatory }}
-    dest: "/opt/{{ docker_compose_name | mandatory }}/docker-compose.yml"
-    owner: root
-    group: root
-    mode: "0644"
-  register: docker_compose_service_content
-
-- name: "Template [.env] into working directory for Docker Compose service : {{ docker_compose_name | mandatory }}"
+- name: Create Docker compose env
   when:
-    - docker_compose_env is defined
-    - docker_compose_env | length > 0
-  ansible.builtin.copy:
-    content: |
-      {{ docker_compose_env }}
-    dest: "/opt/{{ docker_compose_name | mandatory }}/.env"
+    - item.value.compose is defined
+    - item.value.compose != None
+    - item.value.compose | length > 0
+  with_dict: "{{ docker_compose_service }}"
+  ansible.builtin.template:
+    src: docker-compose.env.j2
+    dest: "/opt/docker-compose_{{ item.key }}/.env"
     owner: root
     group: root
     mode: "0644"
   register: docker_compose_service_env
+  no_log: true
 
-- name: "Create Docker Compose service : {{ docker_compose_name | mandatory }}"
+- name: Create Docker compose file
+  when:
+    - item.value.compose is defined
+    - item.value.compose != None
+    - item.value.compose | length > 0
+  with_dict: "{{ docker_compose_service }}"
   ansible.builtin.template:
-    src: docker-compose.service.j2
-    dest: "/etc/systemd/system/docker-compose_{{ docker_compose_name | mandatory }}.service"
+    src: docker-compose.j2
+    dest: "/opt/docker-compose_{{ item.key }}/docker-compose.yml"
     owner: root
     group: root
     mode: "0644"
-  register: docker_compose_service
+  register: docker_compose_service_compose
+  no_log: true
 
-- name: "(Re)start Docker Compose service : {{ docker_compose_name | mandatory }}"
-  when: docker_compose_service.changed or docker_compose_service_content.changed or docker_compose_service_env.changed
+- name: (Re)start Docker compose service
+  when:
+    - docker_compose_service is defined
+    - docker_compose_service != None
+    - docker_compose_service | length > 0
+  with_items: "{{ (docker_compose_service_service.results + docker_compose_service_env.results + docker_compose_service_compose.results) | selectattr('changed', 'equalto', true) | map(attribute='item.key') | list | unique }}"
   ansible.builtin.systemd:
-    state: restarted
+    state: reloaded
     enabled: true
     daemon_reload: true
-    name: "docker-compose_{{ docker_compose_name | mandatory }}.service"
+    name: "docker-compose_{{ item }}.service"
