@@ -1,15 +1,21 @@
+{{ ansible_managed | comment }}
+
 [Unit]
-Description=Docker compose: {{ docker_compose_name | mandatory }}
+Description=Docker compose: {{ item.key }}
 After=docker.service
 Requires=docker.service
 
 [Service]
 Type=oneshot
-Environment="TERM=dumb"
 RemainAfterExit=true
 
-ExecStart=/usr/bin/docker compose --project-directory "/opt/{{ docker_compose_name | mandatory }}" up --remove-orphans -d
-ExecStop=/usr/bin/docker compose --project-directory "/opt/{{ docker_compose_name | mandatory }}" down --remove-orphans
+Environment="TERM=dumb"
+
+WorkingDirectory=/opt/docker-compose_{{ item.key }}
+
+ExecStart=/usr/bin/docker compose --env-file .env up --remove-orphans -d
+ExecReload=/usr/bin/sh -c 'docker compose kill --remove-orphans && docker compose rm -svf && docker compose --env-file .env up --remove-orphans -d'
+ExecStop=/usr/bin/docker compose --env-file .env down --remove-orphans
 
 [Install]
 WantedBy=multi-user.target
