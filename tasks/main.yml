@@ -82,7 +82,7 @@
     - docker_compose_service | length > 0
   with_items: "{{ (docker_compose_service_service.results + docker_compose_service_env.results + docker_compose_service_compose.results) | selectattr('changed', 'equalto', true) | map(attribute='item.key') | list | unique }}"
   ansible.builtin.systemd:
-    state: reloaded
+    state: restarted
     enabled: true
     daemon_reload: true
     name: "docker-compose_{{ item }}.service"

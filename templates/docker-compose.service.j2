@@ -13,9 +13,9 @@ Environment="TERM=dumb"
 
 WorkingDirectory=/opt/docker-compose_{{ item.key }}
 
-ExecStart=/usr/bin/docker compose --env-file .env up --remove-orphans -d
-ExecReload=/usr/bin/sh -c 'docker compose kill --remove-orphans && docker compose rm -svf && docker compose --env-file .env up --remove-orphans -d'
-ExecStop=/usr/bin/docker compose --env-file .env down --remove-orphans
+ExecStart=/usr/bin/sh -c 'docker compose --env-file .env up --remove-orphans -d'
+ExecRestart=/usr/bin/sh -c 'docker compose rm -sf && docker compose --env-file .env up --remove-orphans -d'
+ExecStop=/usr/bin/sh -c 'docker compose rm -sf'
 
 [Install]
 WantedBy=multi-user.target
